@@ -1,0 +1,500 @@
+{
+	"info": {
+		"_postman_id": "8432a1eb-2a3b-419a-9e7f-682416b2512f",
+		"name": "OCR Admin Module",
+		"description": "Endpoints to manage pricing plans and subscription requests",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/auth/login",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Pricing Plans",
+			"item": [
+				{
+					"name": "Create Plan",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Premium Plan\",\n    \"description\": \"Access to advanced OCR processing features\",\n    \"amount\": 49.99,\n    \"duration_days\": 30,\n    \"features\": [\n        \"Unlimited uploads\",\n        \"Priority processing\",\n        \"Dedicated support\"\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/plans",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"plans"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Plans",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/plans",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"plans"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Plan",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Premium Plus Plan\",\n    \"description\": \"Includes priority support and unlimited OCR usage\",\n    \"amount\": 59.99,\n    \"duration_days\": 30,\n    \"features\": [\n        \"Unlimited uploads\",\n        \"Priority support\"\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/plans/:id",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"plans",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "plan-uuid-here"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Plan Status",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/plans/:id/toggle",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"plans",
+								":id",
+								"toggle"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "plan-uuid-here"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Subscription Requests",
+			"item": [
+				{
+					"name": "List Requests",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/subscriptions/requests",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"subscriptions",
+								"requests"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Request",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/subscriptions/requests/:id/approve",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"subscriptions",
+								"requests",
+								":id",
+								"approve"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "request-uuid-here"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reject Request",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"rejection_reason\": \"Payment screenshot is blurred or unreadable.\"\n}"
+						},
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/subscriptions/requests/:id/reject",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"subscriptions",
+								"requests",
+								":id",
+								"reject"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "request-uuid-here"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payment Methods",
+			"item": [
+				{
+					"name": "Create Payment Method",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"CBE Birr\",\n    \"image_url\": \"https://example.com/cbe-logo.png\",\n    \"account_number\": \"1000123456789\"\n}"
+						},
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/payment-methods",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"payment-methods"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Payment Methods",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/payment-methods",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"payment-methods"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Payment Method",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"CBE Birr\",\n    \"image_url\": \"https://example.com/cbe-logo.png\",\n    \"account_number\": \"1000123456789\",\n    \"status\": \"inactive\"\n}"
+						},
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/payment-methods/:id",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"payment-methods",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "payment-method-uuid"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Payment Method",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{admin_base_url}}/api/v1/admin/payment-methods/:id",
+							"host": [
+								"{{admin_base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"payment-methods",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "payment-method-uuid"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "admin_base_url",
+			"value": "http://localhost:8081",
+			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "your-jwt-token-here",
+			"type": "string"
+		},
+		{
+			"key": "admin_refresh_token",
+			"value": "your-refresh-token-here",
+			"type": "string"
+		}
+	]
+}

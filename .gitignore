@@ -1,0 +1,17 @@
+# Binaries
+bin/
+api
+admin-service
+
+# Dependency directories
+vendor/
+
+# Environment variables
+.env
+.env.bak
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+*.csv
