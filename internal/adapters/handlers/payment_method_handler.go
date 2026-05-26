@@ -3,10 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/cashflow/admin-service/internal/core/domain"
 	"github.com/cashflow/admin-service/internal/core/ports"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
@@ -16,23 +16,6 @@ type PaymentMethodHandler struct {
 
 func NewPaymentMethodHandler(svc ports.PaymentMethodService) *PaymentMethodHandler {
 	return &PaymentMethodHandler{svc: svc}
-}
-
-func (h *PaymentMethodHandler) HandlePaymentMethods(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == http.MethodGet {
-		h.List(w, r)
-		return
-	}
-
-	if r.Method == http.MethodPost {
-		h.Create(w, r)
-		return
-	}
-
-	w.WriteHeader(http.StatusMethodNotAllowed)
-	json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Method not allowed"})
 }
 
 func (h *PaymentMethodHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -80,39 +63,16 @@ func (h *PaymentMethodHandler) List(w http.ResponseWriter, r *http.Request) {
 	}{Status: true, Data: methods})
 }
 
-func (h *PaymentMethodHandler) HandlePaymentMethod(w http.ResponseWriter, r *http.Request) {
+func (h *PaymentMethodHandler) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 5 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Invalid URL path"})
-		return
-	}
-	idStr := parts[4]
+	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Invalid payment method ID"})
 		return
 	}
-
-	if r.Method == http.MethodPut {
-		h.Update(w, r, id)
-		return
-	}
-
-	if r.Method == http.MethodDelete {
-		h.Delete(w, r, id)
-		return
-	}
-
-	w.WriteHeader(http.StatusMethodNotAllowed)
-	json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Method not allowed"})
-}
-
-func (h *PaymentMethodHandler) Update(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
-	w.Header().Set("Content-Type", "application/json")
 
 	var req struct {
 		Name          string `json:"name"`
@@ -140,10 +100,18 @@ func (h *PaymentMethodHandler) Update(w http.ResponseWriter, r *http.Request, id
 	}{Status: true, Data: method})
 }
 
-func (h *PaymentMethodHandler) Delete(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+func (h *PaymentMethodHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	err := h.svc.DeletePaymentMethod(r.Context(), id)
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Invalid payment method ID"})
+		return
+	}
+
+	err = h.svc.DeletePaymentMethod(r.Context(), id)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: err.Error()})

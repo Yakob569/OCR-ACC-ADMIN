@@ -3,13 +3,11 @@ package repositories
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"strings"
 
 	"github.com/cashflow/admin-service/internal/core/domain"
 	"github.com/cashflow/admin-service/internal/core/ports"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -29,31 +27,77 @@ func (r *planRepository) Create(ctx context.Context, plan *domain.PricingPlan) (
 		return nil, errors.New("database connection is not available")
 	}
 
-	featuresJSON, err := json.Marshal(plan.Features)
+	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback(ctx)
 
 	query := `
-		INSERT INTO pricing_plans (id, name, description, amount, duration_days, is_active, features)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING created_at, updated_at
+		INSERT INTO pricing_plans (pricing_plan_id, name, description, amount, duration_days, status, trial_days, token_per_month, ocr_per_day, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id, created_at, updated_at
 	`
 
-	err = r.db.QueryRow(ctx, query,
-		plan.ID,
+	err = tx.QueryRow(ctx, query,
+		plan.PricingPlanID,
 		plan.Name,
 		plan.Description,
 		plan.Amount,
 		plan.DurationDays,
+		plan.Status,
+		plan.TrialDays,
+		plan.TokenPerMonth,
+		plan.OcrPerDay,
 		plan.IsActive,
-		featuresJSON,
-	).Scan(&plan.CreatedAt, &plan.UpdatedAt)
+	).Scan(&plan.ID, &plan.CreatedAt, &plan.UpdatedAt)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "pricing_plans_name_key") || strings.Contains(err.Error(), "23505") {
 			return nil, errors.New("a pricing plan with this name already exists")
 		}
+		return nil, err
+	}
+
+	// Save and map features relationally
+	for _, featDesc := range plan.Features {
+		featDescClean := strings.TrimSpace(featDesc)
+		if featDescClean == "" {
+			continue
+		}
+
+		// Generate random feature public ID
+		featBusinessID, err := domain.GenerateCustomID("PFE-")
+		if err != nil {
+			return nil, err
+		}
+
+		// Insert feature lookup if missing
+		var featIntID int
+		featQuery := `
+			INSERT INTO features (feature_id, description, status)
+			VALUES ($1, $2, 'active')
+			ON CONFLICT (description) DO UPDATE SET description = EXCLUDED.description
+			RETURNING id
+		`
+		err = tx.QueryRow(ctx, featQuery, featBusinessID, featDescClean).Scan(&featIntID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Map to plan in junction table
+		mapQuery := `
+			INSERT INTO plan_features (plan_id, feature_id)
+			VALUES ($1, $2)
+			ON CONFLICT DO NOTHING
+		`
+		_, err = tx.Exec(ctx, mapQuery, plan.ID, featIntID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -65,24 +109,28 @@ func (r *planRepository) Update(ctx context.Context, plan *domain.PricingPlan) (
 		return nil, errors.New("database connection is not available")
 	}
 
-	featuresJSON, err := json.Marshal(plan.Features)
+	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback(ctx)
 
 	query := `
 		UPDATE pricing_plans
-		SET name = $1, description = $2, amount = $3, duration_days = $4, features = $5
-		WHERE id = $6
+		SET name = $1, description = $2, amount = $3, duration_days = $4, status = $5, trial_days = $6, token_per_month = $7, ocr_per_day = $8
+		WHERE id = $9
 		RETURNING created_at, updated_at
 	`
 
-	err = r.db.QueryRow(ctx, query,
+	err = tx.QueryRow(ctx, query,
 		plan.Name,
 		plan.Description,
 		plan.Amount,
 		plan.DurationDays,
-		featuresJSON,
+		plan.Status,
+		plan.TrialDays,
+		plan.TokenPerMonth,
+		plan.OcrPerDay,
 		plan.ID,
 	).Scan(&plan.CreatedAt, &plan.UpdatedAt)
 
@@ -93,33 +141,87 @@ func (r *planRepository) Update(ctx context.Context, plan *domain.PricingPlan) (
 		return nil, err
 	}
 
+	// Delete old junction mappings
+	_, err = tx.Exec(ctx, `DELETE FROM plan_features WHERE plan_id = $1`, plan.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Save and map updated features relationally
+	for _, featDesc := range plan.Features {
+		featDescClean := strings.TrimSpace(featDesc)
+		if featDescClean == "" {
+			continue
+		}
+
+		featBusinessID, err := domain.GenerateCustomID("PFE-")
+		if err != nil {
+			return nil, err
+		}
+
+		var featIntID int
+		featQuery := `
+			INSERT INTO features (feature_id, description, status)
+			VALUES ($1, $2, 'active')
+			ON CONFLICT (description) DO UPDATE SET description = EXCLUDED.description
+			RETURNING id
+		`
+		err = tx.QueryRow(ctx, featQuery, featBusinessID, featDescClean).Scan(&featIntID)
+		if err != nil {
+			return nil, err
+		}
+
+		mapQuery := `
+			INSERT INTO plan_features (plan_id, feature_id)
+			VALUES ($1, $2)
+			ON CONFLICT DO NOTHING
+		`
+		_, err = tx.Exec(ctx, mapQuery, plan.ID, featIntID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
 	return plan, nil
 }
 
-func (r *planRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.PricingPlan, error) {
+func (r *planRepository) GetByBusinessID(ctx context.Context, planID string) (*domain.PricingPlan, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is not available")
 	}
 
 	query := `
-		SELECT id, name, description, amount, duration_days, is_active, features, created_at, updated_at
-		FROM pricing_plans
-		WHERE id = $1
+		SELECT p.id, p.pricing_plan_id, p.name, p.description, p.amount, p.duration_days, p.status, p.trial_days, p.token_per_month, p.ocr_per_day, p.is_active, p.created_at, p.updated_at,
+		       COALESCE(array_agg(f.description ORDER BY f.description) FILTER (WHERE f.description IS NOT NULL), '{}') as features
+		FROM pricing_plans p
+		LEFT JOIN plan_features pf ON pf.plan_id = p.id
+		LEFT JOIN features f ON pf.feature_id = f.id
+		WHERE p.pricing_plan_id = $1
+		GROUP BY p.id
 	`
 
 	var plan domain.PricingPlan
-	var featuresJSON []byte
+	var features []string
 
-	err := r.db.QueryRow(ctx, query, id).Scan(
+	err := r.db.QueryRow(ctx, query, planID).Scan(
 		&plan.ID,
+		&plan.PricingPlanID,
 		&plan.Name,
 		&plan.Description,
 		&plan.Amount,
 		&plan.DurationDays,
+		&plan.Status,
+		&plan.TrialDays,
+		&plan.TokenPerMonth,
+		&plan.OcrPerDay,
 		&plan.IsActive,
-		&featuresJSON,
 		&plan.CreatedAt,
 		&plan.UpdatedAt,
+		&features,
 	)
 
 	if err != nil {
@@ -129,14 +231,7 @@ func (r *planRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Pri
 		return nil, err
 	}
 
-	if len(featuresJSON) > 0 {
-		if err := json.Unmarshal(featuresJSON, &plan.Features); err != nil {
-			return nil, err
-		}
-	} else {
-		plan.Features = []string{}
-	}
-
+	plan.Features = features
 	return &plan, nil
 }
 
@@ -146,9 +241,13 @@ func (r *planRepository) List(ctx context.Context) ([]*domain.PricingPlan, error
 	}
 
 	query := `
-		SELECT id, name, description, amount, duration_days, is_active, features, created_at, updated_at
-		FROM pricing_plans
-		ORDER BY amount ASC
+		SELECT p.id, p.pricing_plan_id, p.name, p.description, p.amount, p.duration_days, p.status, p.trial_days, p.token_per_month, p.ocr_per_day, p.is_active, p.created_at, p.updated_at,
+		       COALESCE(array_agg(f.description ORDER BY f.description) FILTER (WHERE f.description IS NOT NULL), '{}') as features
+		FROM pricing_plans p
+		LEFT JOIN plan_features pf ON pf.plan_id = p.id
+		LEFT JOIN features f ON pf.feature_id = f.id
+		GROUP BY p.id
+		ORDER BY p.amount ASC
 	`
 
 	rows, err := r.db.Query(ctx, query)
@@ -160,31 +259,29 @@ func (r *planRepository) List(ctx context.Context) ([]*domain.PricingPlan, error
 	var plans []*domain.PricingPlan
 	for rows.Next() {
 		var plan domain.PricingPlan
-		var featuresJSON []byte
+		var features []string
 
 		err := rows.Scan(
 			&plan.ID,
+			&plan.PricingPlanID,
 			&plan.Name,
 			&plan.Description,
 			&plan.Amount,
 			&plan.DurationDays,
+			&plan.Status,
+			&plan.TrialDays,
+			&plan.TokenPerMonth,
+			&plan.OcrPerDay,
 			&plan.IsActive,
-			&featuresJSON,
 			&plan.CreatedAt,
 			&plan.UpdatedAt,
+			&features,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		if len(featuresJSON) > 0 {
-			if err := json.Unmarshal(featuresJSON, &plan.Features); err != nil {
-				return nil, err
-			}
-		} else {
-			plan.Features = []string{}
-		}
-
+		plan.Features = features
 		plans = append(plans, &plan)
 	}
 
@@ -195,7 +292,7 @@ func (r *planRepository) List(ctx context.Context) ([]*domain.PricingPlan, error
 	return plans, nil
 }
 
-func (r *planRepository) ToggleStatus(ctx context.Context, id uuid.UUID, isActive bool) error {
+func (r *planRepository) ToggleStatus(ctx context.Context, planID string, isActive bool) error {
 	if r.db == nil {
 		return errors.New("database connection is not available")
 	}
@@ -203,9 +300,55 @@ func (r *planRepository) ToggleStatus(ctx context.Context, id uuid.UUID, isActiv
 	query := `
 		UPDATE pricing_plans
 		SET is_active = $1
-		WHERE id = $2
+		WHERE pricing_plan_id = $2
 	`
 
-	_, err := r.db.Exec(ctx, query, isActive, id)
+	_, err := r.db.Exec(ctx, query, isActive, planID)
 	return err
+}
+
+func (r *planRepository) GetByID(ctx context.Context, id string) error {
+	if r.db == nil {
+		return errors.New("database connection is not available")
+	}
+
+	query := `
+		SELECT p.id, p.pricing_plan_id, p.name, p.description, p.amount, p.duration_days, p.status, p.trial_days, p.token_per_month, p.ocr_per_day, p.is_active, p.created_at, p.updated_at,
+		       COALESCE(array_agg(f.description ORDER BY f.description) FILTER (WHERE f.description IS NOT NULL), '{}') as features
+		FROM pricing_plans p
+		LEFT JOIN plan_features pf ON pf.plan_id = p.id
+		LEFT JOIN features f ON pf.feature_id = f.id
+		WHERE p.pricing_plan_id = $1
+		GROUP BY p.id
+	`
+
+	var plan domain.PricingPlan
+	var features []string
+
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&plan.ID,
+		&plan.PricingPlanID,
+		&plan.Name,
+		&plan.Description,
+		&plan.Amount,
+		&plan.DurationDays,
+		&plan.Status,
+		&plan.TrialDays,
+		&plan.TokenPerMonth,
+		&plan.OcrPerDay,
+		&plan.IsActive,
+		&plan.CreatedAt,
+		&plan.UpdatedAt,
+		&features,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return sql.ErrNoRows
+		}
+		return err
+	}
+
+	plan.Features = features
+	return nil
 }

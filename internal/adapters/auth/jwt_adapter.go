@@ -20,7 +20,7 @@ func NewJWTAuthAdapter(secret string) ports.AuthService {
 	}
 }
 
-func (a *jwtAuthAdapter) ValidateToken(tokenStr string) (uuid.UUID, string, error) {
+func (a *jwtAuthAdapter) validateTokenWithType(tokenStr string, expectedType string) (uuid.UUID, string, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if token.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %s", token.Method.Alg())
@@ -38,7 +38,7 @@ func (a *jwtAuthAdapter) ValidateToken(tokenStr string) (uuid.UUID, string, erro
 	}
 
 	tokenType, ok := claims["token_type"].(string)
-	if !ok || tokenType != "access" {
+	if !ok || tokenType != expectedType {
 		return uuid.Nil, "", errors.New("invalid token type")
 	}
 
@@ -58,6 +58,14 @@ func (a *jwtAuthAdapter) ValidateToken(tokenStr string) (uuid.UUID, string, erro
 	}
 
 	return userID, role, nil
+}
+
+func (a *jwtAuthAdapter) ValidateToken(tokenStr string) (uuid.UUID, string, error) {
+	return a.validateTokenWithType(tokenStr, "access")
+}
+
+func (a *jwtAuthAdapter) ValidateRefreshToken(tokenStr string) (uuid.UUID, string, error) {
+	return a.validateTokenWithType(tokenStr, "refresh")
 }
 
 func (a *jwtAuthAdapter) GenerateTokenPair(userID uuid.UUID, role string) (string, string, error) {

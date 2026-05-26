@@ -1,7 +1,7 @@
 # Simple Makefile for Admin Service
 
 APP_NAME=admin-service
-PORT=8081
+PORT=8083
 
 .PHONY: all build run clean test kill
 

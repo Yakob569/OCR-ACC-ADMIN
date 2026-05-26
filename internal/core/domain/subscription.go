@@ -20,7 +20,7 @@ type UserSubscription struct {
 type SubscriptionRequest struct {
 	ID                uuid.UUID `json:"id"`
 	UserID            uuid.UUID `json:"user_id"`
-	PlanID            uuid.UUID `json:"plan_id"`
+	PlanID            string    `json:"plan_id"`
 	PaymentLink       string    `json:"payment_link"`
 	PaymentScreenshot string    `json:"payment_screenshot"`
 	Status            string    `json:"status"` // 'pending', 'approved', 'rejected'

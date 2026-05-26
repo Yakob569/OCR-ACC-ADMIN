@@ -2,13 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/cashflow/admin-service/internal/core/domain"
 	"github.com/cashflow/admin-service/internal/core/ports"
-	"github.com/google/uuid"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
 )
 
 type PlanHandler struct {
@@ -24,22 +23,7 @@ type ErrorResponse struct {
 	Error  string `json:"error"`
 }
 
-func (h *PlanHandler) HandlePlans(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == http.MethodGet {
-		h.List(w, r)
-		return
-	}
-
-	if r.Method == http.MethodPost {
-		h.Create(w, r)
-		return
-	}
-
-	w.WriteHeader(http.StatusMethodNotAllowed)
-	json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Method not allowed"})
-}
+var validate = validator.New()
 
 func (h *PlanHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -81,33 +65,13 @@ func (h *PlanHandler) List(w http.ResponseWriter, r *http.Request) {
 	}{Status: true, Data: plans})
 }
 
-func (h *PlanHandler) HandlePlan(w http.ResponseWriter, r *http.Request) {
+func (h *PlanHandler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if strings.HasSuffix(r.URL.Path, "/status") {
-		h.ToggleStatus(w, r)
-		return
-	}
-
-	if r.Method == http.MethodGet {
-		h.Get(w, r)
-		return
-	}
-
-	if r.Method == http.MethodPut {
-		h.Update(w, r)
-		return
-	}
-
-	w.WriteHeader(http.StatusMethodNotAllowed)
-	json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Method not allowed"})
-}
-
-func (h *PlanHandler) Get(w http.ResponseWriter, r *http.Request) {
-	planID, err := planIDFromPath(r.URL.Path)
-	if err != nil {
+	planID := chi.URLParam(r, "id")
+	if planID == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Invalid plan ID"})
+		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Plan ID is required"})
 		return
 	}
 
@@ -125,10 +89,12 @@ func (h *PlanHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PlanHandler) Update(w http.ResponseWriter, r *http.Request) {
-	planID, err := planIDFromPath(r.URL.Path)
-	if err != nil {
+	w.Header().Set("Content-Type", "application/json")
+
+	planID := chi.URLParam(r, "id")
+	if planID == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Invalid plan ID"})
+		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Plan ID is required"})
 		return
 	}
 
@@ -153,16 +119,12 @@ func (h *PlanHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PlanHandler) ToggleStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Only PATCH is allowed"})
-		return
-	}
+	w.Header().Set("Content-Type", "application/json")
 
-	planID, err := planIDFromStatusPath(r.URL.Path)
-	if err != nil {
+	planID := chi.URLParam(r, "id")
+	if planID == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Invalid plan ID"})
+		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: "Plan ID is required"})
 		return
 	}
 
@@ -175,7 +137,7 @@ func (h *PlanHandler) ToggleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.svc.TogglePlanStatus(r.Context(), planID, body.IsActive)
+	err := h.svc.TogglePlanStatus(r.Context(), planID, body.IsActive)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: err.Error()})
@@ -185,18 +147,4 @@ func (h *PlanHandler) ToggleStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(struct {
 		Status bool `json:"status"`
 	}{Status: true})
-}
-
-func planIDFromPath(path string) (uuid.UUID, error) {
-	idPart := strings.TrimPrefix(path, "/api/v1/admin/plans/")
-	return uuid.Parse(strings.TrimSpace(idPart))
-}
-
-func planIDFromStatusPath(path string) (uuid.UUID, error) {
-	trimmed := strings.Trim(path, "/")
-	parts := strings.Split(trimmed, "/")
-	if len(parts) != 6 || parts[5] != "status" {
-		return uuid.Nil, fmt.Errorf("invalid status path")
-	}
-	return uuid.Parse(parts[4])
 }

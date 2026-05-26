@@ -36,28 +36,26 @@ func (s *subscriptionService) ApproveSubscriptionRequest(ctx context.Context, id
 		return errors.New("request is not in pending status")
 	}
 
-	plan, err := s.planRepo.GetByID(ctx, req.PlanID)
-	if err != nil {
+	if err := s.planRepo.GetByID(ctx, req.PlanID); err != nil {
 		return err
 	}
 
 	// Update status
-	err = s.subRepo.UpdateRequestStatus(ctx, id, "approved", "")
-	if err != nil {
+	if err = s.subRepo.UpdateRequestStatus(ctx, id, "approved", ""); err != nil {
 		return err
 	}
 
 	// Create user subscription record
 	startDate := time.Now()
-	endDate := startDate.AddDate(0, 0, plan.DurationDays)
+	// endDate := startDate.AddDate(0, 0, plan.DurationDays)
 
 	sub := &domain.UserSubscription{
-		ID:        uuid.New(),
-		UserID:    req.UserID,
-		PlanID:    req.PlanID,
+		ID:     uuid.New(),
+		UserID: req.UserID,
+		// PlanID:    req.PlanID,
 		Status:    "active",
 		StartDate: startDate,
-		EndDate:   endDate,
+		// EndDate:   endDate,
 	}
 
 	return s.subRepo.CreateUserSubscription(ctx, sub)
