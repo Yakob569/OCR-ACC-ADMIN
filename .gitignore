@@ -1,6 +1,6 @@
 # Binaries
 bin/
-api
+
 admin-service
 
 # Dependency directories
@@ -15,3 +15,4 @@ vendor/
 .idea/
 .DS_Store
 *.csv
+*.json
