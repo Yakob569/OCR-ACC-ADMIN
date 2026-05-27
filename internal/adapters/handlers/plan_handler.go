@@ -7,7 +7,6 @@ import (
 	"github.com/cashflow/admin-service/internal/core/domain"
 	"github.com/cashflow/admin-service/internal/core/ports"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
 )
 
 type PlanHandler struct {
@@ -22,8 +21,6 @@ type ErrorResponse struct {
 	Status bool   `json:"status"`
 	Error  string `json:"error"`
 }
-
-var validate = validator.New()
 
 func (h *PlanHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

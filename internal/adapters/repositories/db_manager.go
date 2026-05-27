@@ -21,8 +21,7 @@ func NewDatabaseManager(ctx context.Context, databaseURL, user, pass, host, port
 	if databaseURL != "" {
 		connStr = databaseURL
 	} else {
-		// Use a connection string that explicitly disables SSL for local development
-		connStr = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, pass, host, port, dbname)
+		connStr = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=require", user, pass, host, port, dbname)
 	}
 
 	poolConfig, err := pgxpool.ParseConfig(connStr)
@@ -40,7 +39,7 @@ func NewDatabaseManager(ctx context.Context, databaseURL, user, pass, host, port
 		log.Printf("⚠️ Warning: Database ping failed: %v", err)
 	} else {
 		log.Println("✅ Successfully connected to PostgreSQL")
-		
+
 		// Run migrations automatically
 		runMigrations(ctx, pool)
 	}

@@ -116,5 +116,14 @@ func (s *planService) TogglePlanStatus(ctx context.Context, planID string, isAct
 	if err != nil {
 		return err
 	}
+	if !isActive {
+		hasActiveSubscriptions, err := s.planRepo.HasActiveSubscriptions(ctx, planID)
+		if err != nil {
+			return err
+		}
+		if hasActiveSubscriptions {
+			return errors.New("cannot deactivate plan with active subscribers")
+		}
+	}
 	return s.planRepo.ToggleStatus(ctx, planID, isActive)
 }

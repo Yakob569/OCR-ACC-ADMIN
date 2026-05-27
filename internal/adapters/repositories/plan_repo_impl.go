@@ -307,6 +307,27 @@ func (r *planRepository) ToggleStatus(ctx context.Context, planID string, isActi
 	return err
 }
 
+func (r *planRepository) HasActiveSubscriptions(ctx context.Context, planID string) (bool, error) {
+	if r.db == nil {
+		return false, errors.New("database connection is not available")
+	}
+
+	query := `
+		SELECT COUNT(1) > 0
+		FROM user_subscriptions us
+		JOIN pricing_plans p ON p.id = us.plan_id
+		WHERE p.pricing_plan_id = $1
+		  AND us.status = 'active'
+	`
+
+	var hasActive bool
+	if err := r.db.QueryRow(ctx, query, planID).Scan(&hasActive); err != nil {
+		return false, err
+	}
+
+	return hasActive, nil
+}
+
 func (r *planRepository) GetByID(ctx context.Context, id string) error {
 	if r.db == nil {
 		return errors.New("database connection is not available")

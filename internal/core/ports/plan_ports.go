@@ -13,6 +13,7 @@ type PricingPlanRepository interface {
 	GetByBusinessID(ctx context.Context, planID string) (*domain.PricingPlan, error)
 	List(ctx context.Context) ([]*domain.PricingPlan, error)
 	ToggleStatus(ctx context.Context, planID string, isActive bool) error
+	HasActiveSubscriptions(ctx context.Context, planID string) (bool, error)
 	GetByID(ctx context.Context, id string) error
 }
 

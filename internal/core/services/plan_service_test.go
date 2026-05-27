@@ -9,12 +9,14 @@ import (
 )
 
 type mockPlanRepository struct {
-	plans map[string]*domain.PricingPlan
+	plans      map[string]*domain.PricingPlan
+	activeSubs map[string]bool
 }
 
 func newMockPlanRepository() *mockPlanRepository {
 	return &mockPlanRepository{
-		plans: make(map[string]*domain.PricingPlan),
+		plans:      make(map[string]*domain.PricingPlan),
+		activeSubs: make(map[string]bool),
 	}
 }
 
@@ -59,6 +61,10 @@ func (m *mockPlanRepository) GetByID(ctx context.Context, id string) error {
 		return errors.New("plan not found")
 	}
 	return nil
+}
+
+func (m *mockPlanRepository) HasActiveSubscriptions(ctx context.Context, planID string) (bool, error) {
+	return m.activeSubs[planID], nil
 }
 
 func TestCreatePlan(t *testing.T) {
