@@ -14,7 +14,7 @@ type PricingPlanRepository interface {
 	List(ctx context.Context) ([]*domain.PricingPlan, error)
 	ToggleStatus(ctx context.Context, planID string, isActive bool) error
 	HasActiveSubscriptions(ctx context.Context, planID string) (bool, error)
-	GetByID(ctx context.Context, id string) error
+	GetByInternalID(ctx context.Context, id int) (*domain.PricingPlan, error)
 }
 
 type PricingPlanService interface {

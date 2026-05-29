@@ -19,12 +19,18 @@ func NewPaymentMethodService(methodRepo ports.PaymentMethodRepository) ports.Pay
 	}
 }
 
-func (s *paymentMethodService) CreatePaymentMethod(ctx context.Context, name, imageURL, accountNumber string) (*domain.PaymentMethod, error) {
+func (s *paymentMethodService) CreatePaymentMethod(ctx context.Context, name, imageURL, accountNumber, status string) (*domain.PaymentMethod, error) {
 	if name == "" {
 		return nil, errors.New("payment method name is required")
 	}
 	if accountNumber == "" {
 		return nil, errors.New("account number is required")
+	}
+	if status == "" {
+		status = "active"
+	}
+	if status != "active" && status != "inactive" {
+		return nil, errors.New("invalid status: must be 'active' or 'inactive'")
 	}
 
 	method := &domain.PaymentMethod{
@@ -32,7 +38,7 @@ func (s *paymentMethodService) CreatePaymentMethod(ctx context.Context, name, im
 		Name:          name,
 		ImageURL:      imageURL,
 		AccountNumber: accountNumber,
-		Status:        "active",
+		Status:        status,
 	}
 
 	return s.methodRepo.Create(ctx, method)

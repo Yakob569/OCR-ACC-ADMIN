@@ -9,6 +9,7 @@ import (
 
 type SubscriptionRepository interface {
 	ListRequests(ctx context.Context) ([]*domain.SubscriptionRequest, error)
+	CountPendingRequests(ctx context.Context) (int, error)
 	GetRequestByID(ctx context.Context, id uuid.UUID) (*domain.SubscriptionRequest, error)
 	UpdateRequestStatus(ctx context.Context, id uuid.UUID, status string, rejectionReason string) error
 	CreateUserSubscription(ctx context.Context, sub *domain.UserSubscription) error
@@ -16,6 +17,7 @@ type SubscriptionRepository interface {
 
 type SubscriptionService interface {
 	ListSubscriptionRequests(ctx context.Context) ([]*domain.SubscriptionRequest, error)
+	CountPendingSubscriptionRequests(ctx context.Context) (int, error)
 	ApproveSubscriptionRequest(ctx context.Context, id uuid.UUID) error
 	RejectSubscriptionRequest(ctx context.Context, id uuid.UUID, reason string) error
 }

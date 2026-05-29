@@ -55,6 +55,9 @@ func (h *PlanHandler) List(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: err.Error()})
 		return
 	}
+	if plans == nil {
+		plans = []*domain.PricingPlan{}
+	}
 
 	json.NewEncoder(w).Encode(struct {
 		Status bool                  `json:"status"`

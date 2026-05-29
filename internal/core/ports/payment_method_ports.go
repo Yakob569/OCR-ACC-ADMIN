@@ -16,7 +16,7 @@ type PaymentMethodRepository interface {
 }
 
 type PaymentMethodService interface {
-	CreatePaymentMethod(ctx context.Context, name, imageURL, accountNumber string) (*domain.PaymentMethod, error)
+	CreatePaymentMethod(ctx context.Context, name, imageURL, accountNumber, status string) (*domain.PaymentMethod, error)
 	UpdatePaymentMethod(ctx context.Context, id uuid.UUID, name, imageURL, accountNumber, status string) (*domain.PaymentMethod, error)
 	ListPaymentMethods(ctx context.Context) ([]*domain.PaymentMethod, error)
 	DeletePaymentMethod(ctx context.Context, id uuid.UUID) error

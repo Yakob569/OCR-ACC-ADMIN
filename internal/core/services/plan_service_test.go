@@ -55,12 +55,13 @@ func (m *mockPlanRepository) ToggleStatus(ctx context.Context, planID string, is
 	return nil
 }
 
-func (m *mockPlanRepository) GetByID(ctx context.Context, id string) error {
-	_, exists := m.plans[id]
-	if !exists {
-		return errors.New("plan not found")
+func (m *mockPlanRepository) GetByInternalID(ctx context.Context, id int) (*domain.PricingPlan, error) {
+	for _, p := range m.plans {
+		if p.ID == id {
+			return p, nil
+		}
 	}
-	return nil
+	return nil, errors.New("plan not found")
 }
 
 func (m *mockPlanRepository) HasActiveSubscriptions(ctx context.Context, planID string) (bool, error) {

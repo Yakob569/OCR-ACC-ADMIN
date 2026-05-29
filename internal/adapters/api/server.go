@@ -18,6 +18,9 @@ type Server struct {
 	authHandler          *handlers.AuthHandler
 	subHandler           *handlers.SubscriptionHandler
 	paymentMethodHandler *handlers.PaymentMethodHandler
+	merchantHandler      *handlers.MerchantHandler
+	tokenAnalyticsHandler *handlers.TokenAnalyticsHandler
+	dashboardHandler     *handlers.DashboardHandler
 	authSvc              ports.AuthService
 	adminUsername        string
 	adminPassword        string
@@ -25,14 +28,17 @@ type Server struct {
 	httpServer           *http.Server
 }
 
-func NewServer(port string, planHandler *handlers.PlanHandler, authHandler *handlers.AuthHandler, subHandler *handlers.SubscriptionHandler, paymentMethodHandler *handlers.PaymentMethodHandler, authSvc ports.AuthService, adminUser, adminPass string, db *pgxpool.Pool) *Server {
+func NewServer(port string, planHandler *handlers.PlanHandler, authHandler *handlers.AuthHandler, subHandler *handlers.SubscriptionHandler, paymentMethodHandler *handlers.PaymentMethodHandler, merchantHandler *handlers.MerchantHandler, tokenAnalyticsHandler *handlers.TokenAnalyticsHandler, dashboardHandler *handlers.DashboardHandler, authSvc ports.AuthService, adminUser, adminPass string, db *pgxpool.Pool) *Server {
 	return &Server{
-		port:                 port,
-		planHandler:          planHandler,
-		authHandler:          authHandler,
-		subHandler:           subHandler,
-		paymentMethodHandler: paymentMethodHandler,
-		authSvc:              authSvc,
+		port:                  port,
+		planHandler:           planHandler,
+		authHandler:           authHandler,
+		subHandler:            subHandler,
+		paymentMethodHandler:  paymentMethodHandler,
+		merchantHandler:       merchantHandler,
+		tokenAnalyticsHandler: tokenAnalyticsHandler,
+		dashboardHandler:      dashboardHandler,
+		authSvc:               authSvc,
 		adminUsername:        adminUser,
 		adminPassword:        adminPass,
 		db:                   db,

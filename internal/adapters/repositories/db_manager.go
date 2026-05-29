@@ -40,7 +40,7 @@ func NewDatabaseManager(ctx context.Context, databaseURL, user, pass, host, port
 	} else {
 		log.Println("✅ Successfully connected to PostgreSQL")
 
-		// Run migrations automatically
+		// Run migrations automatically (each file runs at most once)
 		runMigrations(ctx, pool)
 	}
 
@@ -52,7 +52,16 @@ func NewDatabaseManager(ctx context.Context, databaseURL, user, pass, host, port
 func runMigrations(ctx context.Context, pool *pgxpool.Pool) {
 	log.Println("Running database migrations...")
 
-	// Look for migrations in current dir or /app/db/migrations
+	if _, err := pool.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			filename TEXT PRIMARY KEY,
+			applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)
+	`); err != nil {
+		log.Printf("⚠️ Could not ensure schema_migrations table: %v", err)
+		return
+	}
+
 	migrationsDir := "db/migrations"
 	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
 		migrationsDir = "/app/db/migrations"
@@ -72,7 +81,22 @@ func runMigrations(ctx context.Context, pool *pgxpool.Pool) {
 	}
 	sort.Strings(sqlFiles)
 
+	bootstrapMigrationLedger(ctx, pool, sqlFiles)
+
 	for _, fileName := range sqlFiles {
+		var alreadyApplied bool
+		if err := pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename = $1)`,
+			fileName,
+		).Scan(&alreadyApplied); err != nil {
+			log.Printf("⚠️ Could not check migration %s: %v", fileName, err)
+			continue
+		}
+		if alreadyApplied {
+			log.Printf("Skipping already applied migration: %s", fileName)
+			continue
+		}
+
 		log.Printf("Executing migration: %s", fileName)
 		filePath := filepath.Join(migrationsDir, fileName)
 		content, err := os.ReadFile(filePath)
@@ -87,19 +111,60 @@ func runMigrations(ctx context.Context, pool *pgxpool.Pool) {
 			continue
 		}
 
-		_, err = tx.Exec(ctx, string(content))
-		if err != nil {
-			tx.Rollback(ctx)
+		if _, err = tx.Exec(ctx, string(content)); err != nil {
+			_ = tx.Rollback(ctx)
 			log.Printf("❌ Migration %s failed and was rolled back: %v", fileName, err)
+			continue
+		}
+
+		if _, err = tx.Exec(ctx,
+			`INSERT INTO schema_migrations (filename) VALUES ($1)`,
+			fileName,
+		); err != nil {
+			_ = tx.Rollback(ctx)
+			log.Printf("❌ Could not record migration %s: %v", fileName, err)
+			continue
+		}
+
+		if err = tx.Commit(ctx); err != nil {
+			log.Printf("❌ Could not commit migration %s: %v", fileName, err)
 		} else {
-			err = tx.Commit(ctx)
-			if err != nil {
-				log.Printf("❌ Could not commit migration %s: %v", fileName, err)
-			} else {
-				log.Printf("✅ Migration %s completed successfully", fileName)
-			}
+			log.Printf("✅ Migration %s completed successfully", fileName)
 		}
 	}
+}
+
+// bootstrapMigrationLedger marks all migrations as applied when the DB already has the
+// redesigned pricing_plans schema (prevents re-running DROP migrations on restart).
+func bootstrapMigrationLedger(ctx context.Context, pool *pgxpool.Pool, sqlFiles []string) {
+	var recorded int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&recorded); err != nil || recorded > 0 {
+		return
+	}
+
+	var hasRedesignedPlans bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'public'
+			  AND table_name = 'pricing_plans'
+			  AND column_name = 'pricing_plan_id'
+		)
+	`).Scan(&hasRedesignedPlans)
+	if err != nil || !hasRedesignedPlans {
+		return
+	}
+
+	for _, fileName := range sqlFiles {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING`,
+			fileName,
+		); err != nil {
+			log.Printf("⚠️ Could not bootstrap migration record %s: %v", fileName, err)
+			return
+		}
+	}
+	log.Println("✅ Bootstrapped schema_migrations for existing database (skipped re-applying destructive migrations)")
 }
 
 func (m *DatabaseManager) Close() {

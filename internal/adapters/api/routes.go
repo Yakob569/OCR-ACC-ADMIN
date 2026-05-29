@@ -40,10 +40,20 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 			// Subscriptions Endpoints
 			r.Route("/subscriptions/requests", func(r chi.Router) {
+				r.Get("/pending/count", s.subHandler.PendingCount)
 				r.Get("/", s.subHandler.ListRequests)
 				r.Post("/{id}/approve", s.subHandler.Approve)
 				r.Post("/{id}/reject", s.subHandler.Reject)
 			})
+
+			// Dashboard
+			r.Get("/dashboard", s.dashboardHandler.Get)
+
+			// Merchants
+			r.Get("/merchants", s.merchantHandler.List)
+
+			// Token analytics
+			r.Get("/tokens/analytics", s.tokenAnalyticsHandler.GetAnalytics)
 
 			// Payment Methods Endpoints
 			r.Route("/payment-methods", func(r chi.Router) {

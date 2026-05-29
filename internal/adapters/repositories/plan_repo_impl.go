@@ -289,6 +289,10 @@ func (r *planRepository) List(ctx context.Context) ([]*domain.PricingPlan, error
 		return nil, err
 	}
 
+	if plans == nil {
+		plans = []*domain.PricingPlan{}
+	}
+
 	return plans, nil
 }
 
@@ -328,9 +332,9 @@ func (r *planRepository) HasActiveSubscriptions(ctx context.Context, planID stri
 	return hasActive, nil
 }
 
-func (r *planRepository) GetByID(ctx context.Context, id string) error {
+func (r *planRepository) GetByInternalID(ctx context.Context, id int) (*domain.PricingPlan, error) {
 	if r.db == nil {
-		return errors.New("database connection is not available")
+		return nil, errors.New("database connection is not available")
 	}
 
 	query := `
@@ -339,7 +343,7 @@ func (r *planRepository) GetByID(ctx context.Context, id string) error {
 		FROM pricing_plans p
 		LEFT JOIN plan_features pf ON pf.plan_id = p.id
 		LEFT JOIN features f ON pf.feature_id = f.id
-		WHERE p.pricing_plan_id = $1
+		WHERE p.id = $1
 		GROUP BY p.id
 	`
 
@@ -365,11 +369,11 @@ func (r *planRepository) GetByID(ctx context.Context, id string) error {
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return sql.ErrNoRows
+			return nil, sql.ErrNoRows
 		}
-		return err
+		return nil, err
 	}
 
 	plan.Features = features
-	return nil
+	return &plan, nil
 }

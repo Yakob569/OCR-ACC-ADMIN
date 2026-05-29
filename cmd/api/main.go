@@ -47,9 +47,18 @@ func main() {
 	paymentMethodRepo := repositories.NewPaymentMethodRepository(dbManager.Pool)
 	paymentMethodSvc := services.NewPaymentMethodService(paymentMethodRepo)
 	paymentMethodHandler := handlers.NewPaymentMethodHandler(paymentMethodSvc)
+	merchantRepo := repositories.NewMerchantRepository(dbManager.Pool)
+	merchantSvc := services.NewMerchantService(merchantRepo)
+	merchantHandler := handlers.NewMerchantHandler(merchantSvc)
+	tokenAnalyticsRepo := repositories.NewTokenAnalyticsRepository(dbManager.Pool)
+	tokenAnalyticsSvc := services.NewTokenAnalyticsService(tokenAnalyticsRepo)
+	tokenAnalyticsHandler := handlers.NewTokenAnalyticsHandler(tokenAnalyticsSvc)
+	dashboardRepo := repositories.NewDashboardRepository(dbManager.Pool)
+	dashboardSvc := services.NewDashboardService(dashboardRepo)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardSvc)
 
 	// 3. Initialize Server
-	server := api.NewServer(cfg.Port, planHandler, authHandler, subHandler, paymentMethodHandler, authAdapter, cfg.AdminUsername, cfg.AdminPassword, dbManager.Pool)
+	server := api.NewServer(cfg.Port, planHandler, authHandler, subHandler, paymentMethodHandler, merchantHandler, tokenAnalyticsHandler, dashboardHandler, authAdapter, cfg.AdminUsername, cfg.AdminPassword, dbManager.Pool)
 
 	// 4. Start Server and handle graceful shutdown internally
 	if err := server.Start(ctx); err != nil {

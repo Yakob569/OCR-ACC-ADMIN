@@ -25,6 +25,7 @@ func (h *PaymentMethodHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Name          string `json:"name"`
 		ImageURL      string `json:"image_url"`
 		AccountNumber string `json:"account_number"`
+		Status        string `json:"status"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -33,7 +34,7 @@ func (h *PaymentMethodHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	method, err := h.svc.CreatePaymentMethod(r.Context(), req.Name, req.ImageURL, req.AccountNumber)
+	method, err := h.svc.CreatePaymentMethod(r.Context(), req.Name, req.ImageURL, req.AccountNumber, req.Status)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(ErrorResponse{Status: false, Error: err.Error()})
