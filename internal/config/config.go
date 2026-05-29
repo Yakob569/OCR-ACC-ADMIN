@@ -35,7 +35,7 @@ func LoadConfig() (*Config, error) {
 		DBHost:        getEnv("DB_HOST", "localhost"),
 		DBPort:        getEnv("DB_PORT", "5432"),
 		DBName:        getEnv("DB_NAME", "postgres"),
-		Port:          getEnv("PORT", "8081"), // Default port for admin is 8081
+		Port:          getEnv("PORT", "8082"),
 		JWTSecret:     getEnv("JWT_SECRET", "change-me-at-all-costs"),
 		AdminUsername: getEnv("ADMIN_USERNAME", "admin"),
 		AdminPassword: getEnv("ADMIN_PASSWORD", "admin123"),

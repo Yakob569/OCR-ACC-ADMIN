@@ -1,0 +1,7 @@
+.git
+.github
+.vscode
+.idea
+bin/
+*.md
+postman_collection.json

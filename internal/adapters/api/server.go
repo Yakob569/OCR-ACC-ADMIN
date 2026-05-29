@@ -48,15 +48,16 @@ func NewServer(port string, planHandler *handlers.PlanHandler, authHandler *hand
 func (s *Server) Start(ctx context.Context) error {
 	handler := s.RegisterRoutes()
 
+	addr := "0.0.0.0:" + s.port
 	s.httpServer = &http.Server{
-		Addr:    ":" + s.port,
+		Addr:    addr,
 		Handler: handler,
 	}
 
 	errChan := make(chan error, 1)
 
 	go func() {
-		log.Printf("🚀 Admin Service running on :%s (Hexagonal Architecture)", s.port)
+		log.Printf("🚀 Admin Service running on %s (Hexagonal Architecture)", addr)
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errChan <- err
 		}
