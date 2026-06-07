@@ -7,20 +7,22 @@ import (
 )
 
 type PricingPlan struct {
-	ID            int       `json:"id"`
-	PricingPlanID string    `json:"pricing_plan_id"`
-	Name          string    `json:"name"`
-	Description   string    `json:"description"`
-	Amount        float64   `json:"amount"`
-	DurationDays  int       `json:"duration_days"`
-	Status        string    `json:"status"`
-	TrialDays     int       `json:"trial_days"`
-	TokenPerMonth float64   `json:"token_per_month"`
-	OcrPerDay     int       `json:"ocr_per_day"`
-	IsActive      bool      `json:"is_active"`
-	Features      []string  `json:"features"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID               int       `json:"id"`
+	PricingPlanID    string    `json:"pricing_plan_id"`
+	Name             string    `json:"name"`
+	Description      string    `json:"description"`
+	Amount           float64   `json:"amount"`
+	DurationDays     int       `json:"duration_days"`
+	Status           string    `json:"status"`
+	TrialDays        int       `json:"trial_days"`
+	TokenPerMonth    float64   `json:"token_per_month"`
+	OcrPerDay        int       `json:"ocr_per_day"`
+	IsDefault        bool      `json:"is_default"`
+	OcrLifetimeLimit *int      `json:"ocr_lifetime_limit,omitempty"`
+	IsActive         bool      `json:"is_active"`
+	Features         []string  `json:"features"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type Feature struct {
@@ -33,27 +35,31 @@ type Feature struct {
 }
 
 type CreatePlanRequest struct {
-	Name          string   `json:"name" validate:"required"`
-	Description   string   `json:"description" validate:"required"`
-	Status        string   `json:"status" validate:"required"`
-	TrialDays     int      `json:"trial_days" validate:"required"`
-	TokenPerMonth float64  `json:"token_per_month" validate:"required"`
-	OcrPerDay     int      `json:"ocr_per_day" validate:"required"`
-	Amount        float64  `json:"amount" validate:"required"`
-	DurationDays  int      `json:"duration_days" validate:"required"`
-	Features      []string `json:"features" validate:"required"`
+	Name             string   `json:"name" validate:"required"`
+	Description      string   `json:"description" validate:"required"`
+	Status           string   `json:"status" validate:"required"`
+	TrialDays        int      `json:"trial_days" validate:"required"`
+	TokenPerMonth    float64  `json:"token_per_month" validate:"required"`
+	OcrPerDay        int      `json:"ocr_per_day" validate:"required"`
+	Amount           float64  `json:"amount" validate:"required"`
+	DurationDays     int      `json:"duration_days" validate:"required"`
+	IsDefault        bool     `json:"is_default"`
+	OcrLifetimeLimit *int     `json:"ocr_lifetime_limit"`
+	Features         []string `json:"features" validate:"required"`
 }
 
 type UpdatePlanRequest struct {
-	Name          string   `json:"name"`
-	Description   string   `json:"description"`
-	Status        string   `json:"status"`
-	TrialDays     int      `json:"trial_days"`
-	TokenPerMonth float64  `json:"token_per_month"`
-	OcrPerDay     int      `json:"ocr_per_day"`
-	Amount        float64  `json:"amount"`
-	DurationDays  int      `json:"duration_days"`
-	Features      []string `json:"features"`
+	Name             string   `json:"name"`
+	Description      string   `json:"description"`
+	Status           string   `json:"status"`
+	TrialDays        int      `json:"trial_days"`
+	TokenPerMonth    float64  `json:"token_per_month"`
+	OcrPerDay        int      `json:"ocr_per_day"`
+	Amount           float64  `json:"amount"`
+	DurationDays     int      `json:"duration_days"`
+	IsDefault        bool     `json:"is_default"`
+	OcrLifetimeLimit *int     `json:"ocr_lifetime_limit"`
+	Features         []string `json:"features"`
 }
 
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

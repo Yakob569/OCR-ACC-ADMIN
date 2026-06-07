@@ -15,6 +15,7 @@ type PricingPlanRepository interface {
 	ToggleStatus(ctx context.Context, planID string, isActive bool) error
 	HasActiveSubscriptions(ctx context.Context, planID string) (bool, error)
 	GetByInternalID(ctx context.Context, id int) (*domain.PricingPlan, error)
+	ClearDefaultPlan(ctx context.Context) error
 }
 
 type PricingPlanService interface {

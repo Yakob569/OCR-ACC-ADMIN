@@ -34,8 +34,8 @@ func (r *planRepository) Create(ctx context.Context, plan *domain.PricingPlan) (
 	defer tx.Rollback(ctx)
 
 	query := `
-		INSERT INTO pricing_plans (pricing_plan_id, name, description, amount, duration_days, status, trial_days, token_per_month, ocr_per_day, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO pricing_plans (pricing_plan_id, name, description, amount, duration_days, status, trial_days, token_per_month, ocr_per_day, is_active, is_default, ocr_lifetime_limit)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id, created_at, updated_at
 	`
 
@@ -50,6 +50,8 @@ func (r *planRepository) Create(ctx context.Context, plan *domain.PricingPlan) (
 		plan.TokenPerMonth,
 		plan.OcrPerDay,
 		plan.IsActive,
+		plan.IsDefault,
+		plan.OcrLifetimeLimit,
 	).Scan(&plan.ID, &plan.CreatedAt, &plan.UpdatedAt)
 
 	if err != nil {
@@ -117,8 +119,8 @@ func (r *planRepository) Update(ctx context.Context, plan *domain.PricingPlan) (
 
 	query := `
 		UPDATE pricing_plans
-		SET name = $1, description = $2, amount = $3, duration_days = $4, status = $5, trial_days = $6, token_per_month = $7, ocr_per_day = $8
-		WHERE id = $9
+		SET name = $1, description = $2, amount = $3, duration_days = $4, status = $5, trial_days = $6, token_per_month = $7, ocr_per_day = $8, is_default = $9, ocr_lifetime_limit = $10
+		WHERE id = $11
 		RETURNING created_at, updated_at
 	`
 
@@ -131,6 +133,8 @@ func (r *planRepository) Update(ctx context.Context, plan *domain.PricingPlan) (
 		plan.TrialDays,
 		plan.TokenPerMonth,
 		plan.OcrPerDay,
+		plan.IsDefault,
+		plan.OcrLifetimeLimit,
 		plan.ID,
 	).Scan(&plan.CreatedAt, &plan.UpdatedAt)
 
@@ -194,45 +198,13 @@ func (r *planRepository) GetByBusinessID(ctx context.Context, planID string) (*d
 		return nil, errors.New("database connection is not available")
 	}
 
-	query := `
-		SELECT p.id, p.pricing_plan_id, p.name, p.description, p.amount, p.duration_days, p.status, p.trial_days, p.token_per_month, p.ocr_per_day, p.is_active, p.created_at, p.updated_at,
-		       COALESCE(array_agg(f.description ORDER BY f.description) FILTER (WHERE f.description IS NOT NULL), '{}') as features
-		FROM pricing_plans p
-		LEFT JOIN plan_features pf ON pf.plan_id = p.id
-		LEFT JOIN features f ON pf.feature_id = f.id
-		WHERE p.pricing_plan_id = $1
-		GROUP BY p.id
-	`
-
-	var plan domain.PricingPlan
-	var features []string
-
-	err := r.db.QueryRow(ctx, query, planID).Scan(
-		&plan.ID,
-		&plan.PricingPlanID,
-		&plan.Name,
-		&plan.Description,
-		&plan.Amount,
-		&plan.DurationDays,
-		&plan.Status,
-		&plan.TrialDays,
-		&plan.TokenPerMonth,
-		&plan.OcrPerDay,
-		&plan.IsActive,
-		&plan.CreatedAt,
-		&plan.UpdatedAt,
-		&features,
-	)
+	plan, features, err := r.queryPlanByFilter(ctx, "p.pricing_plan_id = $1", planID)
 
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, sql.ErrNoRows
-		}
 		return nil, err
 	}
-
 	plan.Features = features
-	return &plan, nil
+	return plan, nil
 }
 
 func (r *planRepository) List(ctx context.Context) ([]*domain.PricingPlan, error) {
@@ -241,7 +213,7 @@ func (r *planRepository) List(ctx context.Context) ([]*domain.PricingPlan, error
 	}
 
 	query := `
-		SELECT p.id, p.pricing_plan_id, p.name, p.description, p.amount, p.duration_days, p.status, p.trial_days, p.token_per_month, p.ocr_per_day, p.is_active, p.created_at, p.updated_at,
+		SELECT p.id, p.pricing_plan_id, p.name, p.description, p.amount, p.duration_days, p.status, p.trial_days, p.token_per_month, p.ocr_per_day, p.is_active, p.is_default, p.ocr_lifetime_limit, p.created_at, p.updated_at,
 		       COALESCE(array_agg(f.description ORDER BY f.description) FILTER (WHERE f.description IS NOT NULL), '{}') as features
 		FROM pricing_plans p
 		LEFT JOIN plan_features pf ON pf.plan_id = p.id
@@ -258,31 +230,12 @@ func (r *planRepository) List(ctx context.Context) ([]*domain.PricingPlan, error
 
 	var plans []*domain.PricingPlan
 	for rows.Next() {
-		var plan domain.PricingPlan
-		var features []string
-
-		err := rows.Scan(
-			&plan.ID,
-			&plan.PricingPlanID,
-			&plan.Name,
-			&plan.Description,
-			&plan.Amount,
-			&plan.DurationDays,
-			&plan.Status,
-			&plan.TrialDays,
-			&plan.TokenPerMonth,
-			&plan.OcrPerDay,
-			&plan.IsActive,
-			&plan.CreatedAt,
-			&plan.UpdatedAt,
-			&features,
-		)
-		if err != nil {
-			return nil, err
+		plan, features, scanErr := scanPlanRow(rows)
+		if scanErr != nil {
+			return nil, scanErr
 		}
-
 		plan.Features = features
-		plans = append(plans, &plan)
+		plans = append(plans, plan)
 	}
 
 	if err = rows.Err(); err != nil {
@@ -337,20 +290,30 @@ func (r *planRepository) GetByInternalID(ctx context.Context, id int) (*domain.P
 		return nil, errors.New("database connection is not available")
 	}
 
-	query := `
-		SELECT p.id, p.pricing_plan_id, p.name, p.description, p.amount, p.duration_days, p.status, p.trial_days, p.token_per_month, p.ocr_per_day, p.is_active, p.created_at, p.updated_at,
-		       COALESCE(array_agg(f.description ORDER BY f.description) FILTER (WHERE f.description IS NOT NULL), '{}') as features
-		FROM pricing_plans p
-		LEFT JOIN plan_features pf ON pf.plan_id = p.id
-		LEFT JOIN features f ON pf.feature_id = f.id
-		WHERE p.id = $1
-		GROUP BY p.id
-	`
+	plan, features, err := r.queryPlanByFilter(ctx, "p.id = $1", id)
+	if err != nil {
+		return nil, err
+	}
+	plan.Features = features
+	return plan, nil
+}
 
+func (r *planRepository) ClearDefaultPlan(ctx context.Context) error {
+	if r.db == nil {
+		return errors.New("database connection is not available")
+	}
+	_, err := r.db.Exec(ctx, `UPDATE pricing_plans SET is_default = FALSE WHERE is_default = TRUE`)
+	return err
+}
+
+type planRowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanPlanRow(row planRowScanner) (*domain.PricingPlan, []string, error) {
 	var plan domain.PricingPlan
 	var features []string
-
-	err := r.db.QueryRow(ctx, query, id).Scan(
+	err := row.Scan(
 		&plan.ID,
 		&plan.PricingPlanID,
 		&plan.Name,
@@ -362,18 +325,34 @@ func (r *planRepository) GetByInternalID(ctx context.Context, id int) (*domain.P
 		&plan.TokenPerMonth,
 		&plan.OcrPerDay,
 		&plan.IsActive,
+		&plan.IsDefault,
+		&plan.OcrLifetimeLimit,
 		&plan.CreatedAt,
 		&plan.UpdatedAt,
 		&features,
 	)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &plan, features, nil
+}
 
+func (r *planRepository) queryPlanByFilter(ctx context.Context, filter string, arg any) (*domain.PricingPlan, []string, error) {
+	query := `
+		SELECT p.id, p.pricing_plan_id, p.name, p.description, p.amount, p.duration_days, p.status, p.trial_days, p.token_per_month, p.ocr_per_day, p.is_active, p.is_default, p.ocr_lifetime_limit, p.created_at, p.updated_at,
+		       COALESCE(array_agg(f.description ORDER BY f.description) FILTER (WHERE f.description IS NOT NULL), '{}') as features
+		FROM pricing_plans p
+		LEFT JOIN plan_features pf ON pf.plan_id = p.id
+		LEFT JOIN features f ON pf.feature_id = f.id
+		WHERE ` + filter + `
+		GROUP BY p.id
+	`
+	plan, features, err := scanPlanRow(r.db.QueryRow(ctx, query, arg))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, sql.ErrNoRows
+			return nil, nil, sql.ErrNoRows
 		}
-		return nil, err
+		return nil, nil, err
 	}
-
-	plan.Features = features
-	return &plan, nil
+	return plan, features, nil
 }

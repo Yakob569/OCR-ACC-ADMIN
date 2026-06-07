@@ -68,6 +68,13 @@ func (m *mockPlanRepository) HasActiveSubscriptions(ctx context.Context, planID 
 	return m.activeSubs[planID], nil
 }
 
+func (m *mockPlanRepository) ClearDefaultPlan(ctx context.Context) error {
+	for _, p := range m.plans {
+		p.IsDefault = false
+	}
+	return nil
+}
+
 func TestCreatePlan(t *testing.T) {
 	repo := newMockPlanRepository()
 	svc := NewPricingPlanService(repo)

@@ -35,18 +35,26 @@ func (s *planService) CreatePlan(ctx context.Context, req *domain.CreatePlanRequ
 		status = "active"
 	}
 
+	if req.IsDefault {
+		if err := s.planRepo.ClearDefaultPlan(ctx); err != nil {
+			return nil, err
+		}
+	}
+
 	plan := &domain.PricingPlan{
-		PricingPlanID: businessID,
-		Name:          req.Name,
-		Description:   req.Description,
-		Amount:        req.Amount,
-		DurationDays:  req.DurationDays,
-		Status:        status,
-		TrialDays:     req.TrialDays,
-		TokenPerMonth: req.TokenPerMonth,
-		OcrPerDay:     req.OcrPerDay,
-		IsActive:      true,
-		Features:      features,
+		PricingPlanID:    businessID,
+		Name:             req.Name,
+		Description:      req.Description,
+		Amount:           req.Amount,
+		DurationDays:     req.DurationDays,
+		Status:           status,
+		TrialDays:        req.TrialDays,
+		TokenPerMonth:    req.TokenPerMonth,
+		OcrPerDay:        req.OcrPerDay,
+		IsDefault:        req.IsDefault,
+		OcrLifetimeLimit: req.OcrLifetimeLimit,
+		IsActive:         true,
+		Features:         features,
 	}
 
 	return s.planRepo.Create(ctx, plan)
@@ -87,6 +95,12 @@ func (s *planService) UpdatePlan(ctx context.Context, planID string, req *domain
 		status = "active"
 	}
 
+	if req.IsDefault && !existing.IsDefault {
+		if err := s.planRepo.ClearDefaultPlan(ctx); err != nil {
+			return nil, err
+		}
+	}
+
 	existing.Name = req.Name
 	existing.Description = req.Description
 	existing.Amount = req.Amount
@@ -95,6 +109,8 @@ func (s *planService) UpdatePlan(ctx context.Context, planID string, req *domain
 	existing.TrialDays = req.TrialDays
 	existing.TokenPerMonth = req.TokenPerMonth
 	existing.OcrPerDay = req.OcrPerDay
+	existing.IsDefault = req.IsDefault
+	existing.OcrLifetimeLimit = req.OcrLifetimeLimit
 	existing.Features = features
 
 	return s.planRepo.Update(ctx, existing)
